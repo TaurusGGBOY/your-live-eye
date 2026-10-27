@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark"><meta name="description" content="你的眼：{{CHANNEL_NAME}}直播间舆情分析系统，按日期观察弹幕与 SC 的话题构成及长期分布。">
+<title>你的眼 YourLiveEye · {{CHANNEL_NAME}}直播间舆情分析系统</title><link rel="icon" type="image/svg+xml" href="favicon.svg?v={{APP_VERSION}}">
+<link rel="stylesheet" href="style.css?v={{APP_VERSION}}"><script src="app.js?v={{APP_VERSION}}" defer></script>
+</head>
+<body>
+<main class="dashboard">
+<header class="page-header">
+<div class="brand-lockup"><a class="brand-avatar" href="{{LIVE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="前往{{CHANNEL_NAME}}的哔哩哔哩直播间"><img src="favicon.svg" alt="你的眼标志"></a><div class="identity"><h1>你的眼<span>{{CHANNEL_NAME}}直播间舆情分析系统</span></h1><div class="hero-copy"><p>YourLiveEye · 直播间里的每一种声音</p><a class="platform-link" href="{{LIVE_URL}}" target="_blank" rel="noopener noreferrer">哔哩哔哩直播间 ↗</a></div></div></div>
+<section id="summary" class="summary-strip" aria-label="观察日期" hidden>
+<div class="date-cluster"><label for="date">北京时间</label><div class="date-actions"><button id="prev-day" aria-keyshortcuts="ArrowLeft" aria-label="上一个有收录的日期">‹</button><div class="date-field"><input id="date" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="YYYY-MM-DD" aria-label="观察日期" aria-describedby="date-error"><button id="open-calendar" aria-label="打开日历" title="选择日期" aria-haspopup="dialog" aria-controls="calendar-dialog" aria-expanded="false"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16"/></svg></button></div><button id="next-day" aria-keyshortcuts="ArrowRight" aria-label="下一个有收录的日期">›</button><button id="latest-day" class="text-button">最新</button></div><span id="date-error" class="date-error" role="status" hidden></span></div>
+</section>
+</header>
+<div id="loading" class="loading" role="status">正在打开当天内容…</div>
+<div id="charts" class="charts" hidden>
+<section class="panel timeline-panel" aria-labelledby="chart-title">
+<div class="panel-heading"><div class="timeline-heading"><h2 id="chart-title">这一天，都在聊什么</h2><p id="session-range" class="session-range"></p><p class="chart-total" aria-label="当前图表收录消息"><strong id="message-count">—</strong><span>条收录</span></p></div><div class="chart-actions"><button id="up-level" class="text-button" hidden>返回上级</button><button id="all-day" class="text-button" hidden>全天</button><span id="fixed-interval" class="fixed-interval">5 分钟</span></div></div>
+
+<nav id="time-path" class="time-path" aria-label="时间路径" hidden></nav>
+<div id="legend" class="legend" aria-label="分类图例"></div>
+<div id="timeline" class="timeline" aria-label="按时间展示的百分比堆叠柱状图"></div>
+<p id="selected-bin-note" class="selected-bin-note" aria-live="polite"></p>
+<p id="chart-footnote" class="chart-footnote">5 分钟内各话题占全部收录消息的比例。</p>
+</section>
+<aside class="daily-insights" aria-label="当天话题与原文回看">
+<section class="panel reaction-panel" aria-labelledby="reaction-title">
+<div class="panel-heading"><h2 id="reaction-title">高频互动</h2><p class="insight-period" data-insight-period>全天</p></div>
+<div id="reaction-content" class="insight-scroll" aria-live="polite"></div>
+</section>
+<section class="panel critical-panel" aria-labelledby="critical-title">
+<div class="panel-heading"><h2 id="critical-title">针对主播与粉丝的攻击</h2><p class="insight-period" data-insight-period>全天</p></div>
+<div id="critical-content" class="insight-scroll" aria-live="polite"></div>
+</section>
+</aside>
+</div>
+<section id="history-windows" class="history-windows" aria-label="以所选日期为截止日的长期分布" hidden></section>
+<footer id="source-footer" class="source-footer" hidden>
+<p class="site-disclaimer"><strong>免责声明</strong>仅分析已收录直播；模型判断可能有误，不用于给观众定性。请结合原文和语境理解，勿据此骚扰他人。</p>
+<p class="source-credit">数据来源 <a href="{{SOURCE_URL}}" target="_blank" rel="noopener noreferrer">Danmakus ↗</a></p>
+<span id="snapshot-note"></span><span id="coverage-note" class="coverage-note"></span><span class="version-info" aria-label="页面版本">v{{APP_VERSION}}</span>
+<div class="footer-actions"><a id="github-link" class="about-button" href="https://github.com/TaurusGGBOY/your-live-eye" target="_blank" rel="noopener noreferrer">GitHub ↗</a><button id="changelog-button" class="about-button" aria-haspopup="dialog" aria-controls="changelog-dialog">更新日志</button><button id="about-button" class="about-button" aria-haspopup="dialog">关于</button></div>
+</footer>
+</main>
+<dialog id="calendar-dialog" class="calendar-dialog" aria-labelledby="calendar-title" aria-describedby="calendar-help">
+<div class="calendar-heading"><div><h2 id="calendar-title">选择日期</h2><p id="calendar-subtitle">回看这一天的直播间</p></div><button id="calendar-close" class="calendar-icon" aria-label="关闭日历">×</button></div>
+<div class="calendar-navigation"><button id="calendar-prev" class="calendar-icon" aria-label="上个月">‹</button><button id="calendar-period" class="calendar-period" aria-label="选择年月"></button><button id="calendar-next" class="calendar-icon" aria-label="下个月">›</button></div>
+<div id="calendar-weekdays" class="calendar-weekdays" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+<div id="calendar-grid" class="calendar-grid" role="group" aria-label="选择日期"></div>
+<div class="calendar-caption"><span class="calendar-key"><i aria-hidden="true"></i>有收录</span><span id="calendar-status" aria-live="polite"></span></div>
+<p id="calendar-help" class="calendar-help">无圆点日期暂无收录，不代表没有开播</p>
+<div class="calendar-footer"><span id="calendar-selected"></span><button id="calendar-latest">最新收录 <span aria-hidden="true">↗</span></button></div>
+</dialog>
+<dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title">
+<div class="about-heading"><div><span class="eyebrow">ABOUT THIS PROJECT</span><h2 id="about-title">关于信息</h2></div><button id="about-close" class="about-close" aria-label="关闭关于信息" autofocus>×</button></div>
+<p>「你的眼」整理{{CHANNEL_NAME}}哔哩哔哩直播间的弹幕与 SC，通过图表和片段回顾，了解每天的话题与互动。</p>
+<p>本项目为非官方整理。字面【或】按配置归翻译；其余批量分类，攻击候选再检查对象与语境。图片和缺失正文保留待判断。高频互动仅展示原文次数，不推测主播说过什么。</p>
+<div class="about-source"><strong>数据来源与致谢</strong><p>感谢 <a href="{{SOURCE_URL}}" target="_blank" rel="noopener noreferrer">Danmakus</a> 的弹幕与 SC 归档，以及提供公开档案的贡献者。</p></div>
+<p><a href="https://github.com/TaurusGGBOY/your-live-eye" target="_blank" rel="noopener noreferrer">开源代码 · YourLiveEye ↗</a></p>
+<p class="about-version">你的眼 · v{{APP_VERSION}}</p>
+</dialog>
+<dialog id="changelog-dialog" class="about-dialog changelog-dialog" aria-labelledby="changelog-title" aria-describedby="changelog-description">
+<div class="about-heading"><div><span class="eyebrow">RELEASE NOTES</span><h2 id="changelog-title">更新日志</h2></div><button id="changelog-close" class="about-close" aria-label="关闭更新日志" autofocus>×</button></div>
+<p id="changelog-description">每个版本，记录这次具体改了什么。</p>
+<div class="release-list">
+<!-- release-notes:start --><!-- release-notes:end -->
+</div>
+<p class="changelog-history-note">独立项目从 v0.1.0 开始记录。</p>
+</dialog>
+<!-- first-screen:start --><!-- first-screen:end -->
+</body>
+</html>

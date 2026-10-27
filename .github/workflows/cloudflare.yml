@@ -1,0 +1,66 @@
+name: Cloudflare Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'publish = 已完成的数据；update = 先初始化或补齐，再发布'
+        type: choice
+        options: [publish, update]
+        default: publish
+  schedule:
+    # Beijing 04:00 = previous UTC day 20:00. Change this when choosing another time.
+    - cron: '0 20 * * *'
+
+permissions:
+  contents: read
+
+# Standard GitHub-hosted Ubuntu is the default. Private R2 checkpoints survive
+# disposable VMs; self-hosted users can opt into their existing local state.
+concurrency:
+  group: your-live-eye-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || vars.YOUR_LIVE_EYE_DAILY_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.YOUR_LIVE_EYE_RUNNER == 'self-hosted' && '["self-hosted","your-live-eye"]' || '["ubuntu-latest"]') }}
+    timeout-minutes: 360
+    env:
+      YOUR_LIVE_EYE_RUNNER: ${{ vars.YOUR_LIVE_EYE_RUNNER || 'github-hosted' }}
+      YOUR_LIVE_EYE_CONFIG: ${{ vars.YOUR_LIVE_EYE_CONFIG }}
+      YOUR_LIVE_EYE_UID: ${{ vars.YOUR_LIVE_EYE_UID }}
+      YOUR_LIVE_EYE_MODEL: ${{ vars.YOUR_LIVE_EYE_MODEL }}
+      YOUR_LIVE_EYE_SCOPE: ${{ vars.YOUR_LIVE_EYE_SCOPE || 'all' }}
+      YOUR_LIVE_EYE_UPDATE_AT: ${{ vars.YOUR_LIVE_EYE_UPDATE_AT || '04:00' }}
+      YOUR_LIVE_EYE_TIMEZONE: ${{ vars.YOUR_LIVE_EYE_TIMEZONE || 'Asia/Shanghai' }}
+      YOUR_LIVE_EYE_STATE_BUCKET: ${{ vars.YOUR_LIVE_EYE_STATE_BUCKET }}
+      YOUR_LIVE_EYE_CF_PROJECT: ${{ vars.CLOUDFLARE_PROJECT_NAME }}
+      YOUR_LIVE_EYE_CF_BRANCH: ${{ vars.CLOUDFLARE_PRODUCTION_BRANCH || 'main' }}
+      YOUR_LIVE_EYE_ACTION_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || inputs.mode }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install project
+        run: python -m pip install '.[cloud]'
+      - name: Initialize or catch up and export static files
+        id: prepare
+        env:
+          YOUR_LIVE_EYE_API_KEY: ${{ secrets.YOUR_LIVE_EYE_API_KEY }}
+          YOUR_LIVE_EYE_API_BASE: ${{ vars.YOUR_LIVE_EYE_API_BASE }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python scripts/cloudflare-action.py
+      - name: Publish to Cloudflare Pages
+        if: steps.prepare.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy "${{ steps.prepare.outputs.directory }}" --project-name=${{ env.YOUR_LIVE_EYE_CF_PROJECT }} --branch=${{ env.YOUR_LIVE_EYE_CF_BRANCH }}

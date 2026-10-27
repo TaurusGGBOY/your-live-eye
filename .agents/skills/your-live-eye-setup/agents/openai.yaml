@@ -1,0 +1,4 @@
+interface:
+  display_name: "你的眼：初始化与部署"
+  short_description: "确认主播与历史范围、Cloudflare、每日更新时间，并估算运行耗时"
+  default_prompt: "使用 $your-live-eye-setup 为我初始化直播间分析，确认主播、范围、Cloudflare 部署及每日更新时间，并在开始前估算耗时。"

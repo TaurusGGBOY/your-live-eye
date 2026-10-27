@@ -1,0 +1,10 @@
+global-exclude ._* .DS_Store *.pyc
+prune .state
+prune .venv
+graft .agents
+graft .github
+graft docs
+graft deploy
+graft scripts
+graft tests
+include README.md AGENTS.md NOTICE.md LICENSE run.sh run.ps1

@@ -1,0 +1,15 @@
+.venv/
+.state/
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+.DS_Store
+._*
+.env
+.env.*
+!.env.example
+*.sqlite*
+*.msgpack
+*.log
