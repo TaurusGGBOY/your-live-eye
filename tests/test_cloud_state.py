@@ -35,8 +35,8 @@ class CloudStateTests(unittest.TestCase):
         save(root/'current.json',{'directory':str(root/'releases/current')})
         save(root/'releases/current/data.json',{'value':1})
         save(root/'releases/old/data.json',{'value':0})
-        (root/'raw/stream').mkdir(parents=True);(root/'raw/stream/body').write_text('source')
-        (root/'.env').write_text('should not leave the machine')
+        (root/'raw/stream').mkdir(parents=True);(root/'raw/stream/body').write_text('source', encoding='utf-8')
+        (root/'.env').write_text('should not leave the machine', encoding='utf-8')
         with closing(connect(root)) as db,db:
             db.execute("INSERT INTO texts(text,kind,topic) VALUES('saved work','SC',4)")
         cloud.save(root)

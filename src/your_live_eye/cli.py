@@ -92,6 +92,6 @@ def main():
         else:
             from .deployment import deploy,stop,verify,export
             result=deploy(root,config) if args.command=='deploy' else stop(root) if args.command=='stop' else verify(root,config) if args.command=='verify' else export(root,args.output)
-        print(json.dumps(result,ensure_ascii=False,indent=2))
+        print(json.dumps(result,ensure_ascii=True,indent=2))
     except (Exception,KeyboardInterrupt) as error:
         log('error',error_type=type(error).__name__,message=str(error));sys.exit(1)

@@ -14,7 +14,7 @@ META = ('schema_version', 'as_of', 'generated_at', 'min_date', 'default_date',
 
 def embed(site):
     site = Path(site)
-    data = json.loads((site / 'data.json').read_text())
+    data = json.loads((site / 'data.json').read_text(encoding='utf-8'))
     day = data['default_date']
     payload = ''
     if day in data['calendar'] and (site / 'days' / f'{day}.json').is_file():
@@ -22,21 +22,21 @@ def embed(site):
         index['source'] = {'channel_url': data['source']['channel_url']}
         index['calendar'] = {day: data['calendar'][day]}
         index['observed_dates'] = [d for d, row in data['calendar'].items() if row['observed']]
-        bootstrap = {'snapshot': index, 'day': json.loads((site / 'days' / f'{day}.json').read_text())}
+        bootstrap = {'snapshot': index, 'day': json.loads((site / 'days' / f'{day}.json').read_text(encoding='utf-8'))}
         insight = site / 'insights' / f'{day}.json'
         if data.get('daily_insights') and insight.is_file():
-            bootstrap['insights'] = json.loads(insight.read_text())
+            bootstrap['insights'] = json.loads(insight.read_text(encoding='utf-8'))
         payload = json.dumps(bootstrap, ensure_ascii=False, separators=(',', ':'))
         # Anonymous source text can contain HTML; keep it inside the inert JSON block.
         for char in ('<', '>', '&', '\u2028', '\u2029'):
             payload = payload.replace(char, f'\\u{ord(char):04x}')
         payload = f'<script id="first-screen" type="application/json">{payload}</script>'
-    html = render_release_notes((site / 'index.html').read_text())
+    html = render_release_notes((site / 'index.html').read_text(encoding='utf-8'))
     block = START + payload + END
     html = re.sub(re.escape(START) + '.*?' + re.escape(END), lambda _: block, html, flags=re.S)
     target = site / 'index.html'
     temp = target.with_suffix('.html.tmp')
-    temp.write_text(html)
+    temp.write_text(html, encoding='utf-8')
     temp.replace(target)
     compressed = site / 'index.html.gz'
     temp = compressed.with_suffix('.gz.tmp')

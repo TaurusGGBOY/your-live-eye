@@ -28,7 +28,7 @@ def read(path):
     return json.loads(Path(path).read_text(encoding='utf-8'))
 
 def log(event, **fields):
-    print(json.dumps(dict(time=now(), event=event, **fields), ensure_ascii=False), flush=True)
+    print(json.dumps(dict(time=now(), event=event, **fields), ensure_ascii=True), flush=True)
 
 @contextlib.contextmanager
 def process_lock(path):

@@ -83,10 +83,10 @@ class PipelineTests(unittest.TestCase):
         site=build(self.root,self.config)
         self.assertEqual(validate(site)['events'],6)
         self.assertEqual(validate(site)['days'],2)
-        html=(site/'index.html').read_text();self.assertIn('测试 &lt;主播&gt;',html)
+        html=(site/'index.html').read_text(encoding='utf-8');self.assertIn('测试 &lt;主播&gt;',html)
         self.assertNotIn('火羽',html);self.assertNotIn('2094031249',html)
         for path in site.rglob('*.json'):
-            value=path.read_text();self.assertNotIn('user_id',value);self.assertNotIn(str(self.root),value)
+            value=path.read_text(encoding='utf-8');self.assertNotIn('user_id',value);self.assertNotIn(str(self.root),value)
 
     def test_strength_preserves_counts_and_reuses_scores(self):
         ingest(self.root,LIVE,[event(1,'攻击甲'),event(2,'攻击甲'),event(3,'攻击乙')])
@@ -100,7 +100,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(state['topic_counts'][5],3);self.assertEqual(state['pending_scores'],0)
         self.assertEqual(state['model_attempts'],2) # One primary + one combined review, no separate scoring call.
         site=build(self.root,self.config)
-        insights=json.loads((site/'insights/2026-10-25.json').read_text())
+        insights=json.loads((site/'insights/2026-10-25.json').read_text(encoding='utf-8'))
         self.assertEqual([r['severity_score'] for r in insights['critical_quotes']],[75,75,None])
         classify(self.root,SETTINGS,CHANNEL,caller)
         self.assertEqual(summary(self.root)['model_attempts'],state['model_attempts'])
@@ -139,6 +139,6 @@ class PipelineTests(unittest.TestCase):
         save(self.root/'scheduler-state.json',{'last_success_due_date':'2020-01-01'})
         with patch('your_live_eye.pipeline.run',side_effect=RuntimeError('source failed')):
             with self.assertRaises(RuntimeError):tick(self.root/'config.json')
-        self.assertEqual(json.loads((self.root/'scheduler-state.json').read_text())['last_success_due_date'],'2020-01-01')
+        self.assertEqual(json.loads((self.root/'scheduler-state.json').read_text(encoding='utf-8'))['last_success_due_date'],'2020-01-01')
 
 if __name__=='__main__':unittest.main()

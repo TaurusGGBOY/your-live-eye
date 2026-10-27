@@ -109,12 +109,12 @@ def systemd_install(label,args,root,timer=False):
     service=folder/(label+'.service')
     content=f'[Unit]\nDescription=YourLiveEye {label}\nAfter=network-online.target\n[Service]\nType={"oneshot" if timer else "simple"}\nExecStart={cmd}\nWorkingDirectory={quote(root)}\n'
     if not timer:content+='Restart=on-failure\n[Install]\nWantedBy=default.target\n'
-    if service.exists() and service.read_text()!=content:raise RuntimeError('Service name already belongs to another configuration')
-    service.write_text(content)
+    if service.exists() and service.read_text(encoding='utf-8')!=content:raise RuntimeError('Service name already belongs to another configuration')
+    service.write_text(content, encoding='utf-8')
     unit=label+'.service'
     if timer:
         unit=label+'.timer'
-        (folder/unit).write_text(f'[Unit]\nDescription=YourLiveEye Shanghai 04:00 catch-up\n[Timer]\nOnBootSec=2m\nOnUnitActiveSec=15m\nPersistent=true\nUnit={label}.service\n[Install]\nWantedBy=timers.target\n')
+        (folder/unit).write_text(f'[Unit]\nDescription=YourLiveEye Shanghai 04:00 catch-up\n[Timer]\nOnBootSec=2m\nOnUnitActiveSec=15m\nPersistent=true\nUnit={label}.service\n[Install]\nWantedBy=timers.target\n', encoding='utf-8')
     subprocess.run(['systemctl','--user','daemon-reload'],check=True)
     subprocess.run(['systemctl','--user','enable','--now',unit],check=True)
     return dict(executor='systemd',label=label,path=str(service),unit=unit)
