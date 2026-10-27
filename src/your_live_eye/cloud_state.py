@@ -52,7 +52,7 @@ class CloudState:
             with tarfile.open(archive,'w:gz',compresslevel=1) as tar:
                 for path in sorted(root.rglob('*')):
                     relative=path.relative_to(root)
-                    allowed_dirs={'raw','prompts','attempts','releases'}
+                    allowed_dirs={'raw','prompts','attempts','releases','memes'}
                     allowed_files={'config.json','catalogue.json','selection.json','coverage.json','progress.json','last-run.json','checkpoint.json','scheduler-state.json','current.json'}
                     if relative.parts[0] not in allowed_dirs and str(relative) not in allowed_files:continue
                     if not path.is_file() or path.is_symlink():continue

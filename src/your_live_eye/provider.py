@@ -17,16 +17,28 @@ def codex_executable():
     raise RuntimeError('Install Codex CLI and complete `codex login`, or choose --provider openai and configure its environment variables.')
 
 def call(rows,prompt,settings,stem):
-    stem=Path(stem);stem.parent.mkdir(parents=True,exist_ok=True)
-    output=stem.with_suffix('.json')
     width=3 if settings.get('response_kind')=='scored_review' else 2
     schema={'type':'object','additionalProperties':False,'required':['items'],
             'properties':{'items':{'type':'array','minItems':len(rows),'maxItems':len(rows),
                          'items':{'type':'array','items':{'type':'integer'},'minItems':width,'maxItems':width}}}}
+    payload,metrics=request(rows,prompt,settings,stem,schema)
+    labels={}
+    if not metrics['error']:
+        try:
+            expected=[{'content_id':r['id']} for r in rows]
+            labels,metrics['audit']=salvage_scored(payload,expected) if width==3 else salvage_pairs(payload,expected,settings.get('max_output_value',7),settings.get('min_output_value',0))
+        except (KeyError,ValueError,TypeError):metrics['error']='invalid_model_output'
+    save(Path(stem).with_suffix('.metrics.json'),metrics)
+    return labels,metrics
+
+def request(rows,prompt,settings,stem,schema):
+    """Shared transport for classification and source-bound semantic review."""
+    stem=Path(stem);stem.parent.mkdir(parents=True,exist_ok=True)
+    output=stem.with_suffix('.json')
     save(stem.with_suffix('.schema.json'),schema)
     save(stem.with_suffix('.request.json'),dict(settings=settings,items=rows))
     content=prompt+'\n'+json.dumps(rows,ensure_ascii=False,separators=(',',':'))
-    started=time.monotonic();usage={};error=None;labels={};audit={}
+    started=time.monotonic();usage={};error=None;payload=None;audit={}
     try:
         if settings['provider']=='codex':
             runtime=Path(os.environ.get('YOUR_LIVE_EYE_TMP','/tmp/codextmp/your_live_eye-model'))
@@ -64,12 +76,10 @@ def call(rows,prompt,settings,stem):
             usage={'input_tokens':raw_usage.get('prompt_tokens',0),'output_tokens':raw_usage.get('completion_tokens',0),
                    'cached_input_tokens':raw_usage.get('prompt_tokens_details',{}).get('cached_tokens',0)}
             payload=json.loads(result['choices'][0]['message']['content']);save(output,payload)
-        expected=[{'content_id':r['id']} for r in rows]
-        labels,audit=salvage_scored(payload,expected) if width==3 else salvage_pairs(payload,expected,settings.get('max_output_value',7))
     except subprocess.TimeoutExpired:error='model_timeout'
     except Exception as exc:
         # Never include headers, credentials or provider response bodies in errors.
         if error is None:error=str(exc) if isinstance(exc,RuntimeError) else type(exc).__name__
     metrics=dict(seconds=time.monotonic()-started,usage=usage,error=error,audit=audit,output_path=str(output))
     save(stem.with_suffix('.metrics.json'),metrics)
-    return labels,metrics
+    return payload,metrics

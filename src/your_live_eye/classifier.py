@@ -1,4 +1,4 @@
-"""Resumable exact-text batches, partial-output salvage and scoped attack review."""
+"""Resumable classification and category-preserving expression intensity."""
 import json
 import threading
 import time
@@ -15,13 +15,14 @@ def prompt_for(stage,channel):
 
 def queue(root,stage,settings):
     with closing(connect(root)) as db,db:
-        condition={'primary':'t.candidate_topic IS NULL','review':'t.candidate_topic=5 AND t.topic IS NULL',
+        condition={'primary':'t.candidate_topic IS NULL','primary_quarrel':'t.candidate_topic IS NULL','review':'t.candidate_topic=5 AND t.topic IS NULL',
                    'review_scored':'t.candidate_topic=5 AND t.topic IS NULL',
-                   'severity':'t.topic=5 AND t.severity_score IS NULL'}[stage]
+                   'severity':'t.topic=5 AND t.severity_score IS NULL',
+                   'intensity':'t.topic=5 AND t.severity_score IS NULL'}[stage]
         rows=db.execute(f'''SELECT t.id,t.text FROM texts t WHERE {condition}
             AND EXISTS(SELECT 1 FROM events e WHERE e.text_id=t.id)
             AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.stage=? AND j.text_id=t.id) ORDER BY t.id''',(stage,)).fetchall()
-        limit=settings['batch_size'] if stage=='primary' else settings['review_batch_size']
+        limit=settings['batch_size'] if stage in ('primary','primary_quarrel') else settings.get('score_batch_size',2048) if stage=='intensity' else settings['review_batch_size']
         batch=[];size=0
         def flush():
             nonlocal batch,size
@@ -51,8 +52,9 @@ def model_rows(db,stage,ids):
         result.append(row)
     return result
 
-def execute(root,stage,settings,channel,caller=provider.call):
-    root=Path(root); queue(root,stage,settings)
+def execute(root,stage,settings,channel,caller=provider.call,enqueue=True):
+    root=Path(root)
+    if enqueue:queue(root,stage,settings)
     prompt=prompt_for(stage,channel)
     frozen=root/'prompts'/f'{stage}.txt'
     if frozen.exists() and frozen.read_text(encoding='utf-8')!=prompt:
@@ -76,6 +78,7 @@ def execute(root,stage,settings,channel,caller=provider.call):
                 rows=model_rows(db,stage,ids)
                 started=now()
                 call_settings=dict(settings,max_output_value=100) if stage=='severity' else settings
+                if stage=='intensity':call_settings=dict(settings,max_output_value=100,min_output_value=1)
                 if stage=='review_scored':call_settings=dict(settings,response_kind='scored_review')
                 labels,metrics=caller(rows,prompt,call_settings,root/'attempts'/f'{stage}-{bid:06d}-{attempt}')
                 with db:
@@ -83,9 +86,9 @@ def execute(root,stage,settings,channel,caller=provider.call):
                         for cid,value in labels.items():
                             topic=value['topic'] if stage=='review_scored' else value
                             db.execute("UPDATE jobs SET status='complete',topic=? WHERE stage=? AND text_id=?",(topic,stage,cid))
-                            if stage=='primary':
+                            if stage in ('primary','primary_quarrel'):
                                 db.execute('UPDATE texts SET candidate_topic=?,topic=?,method=? WHERE id=?',
-                                           (topic,None if topic==5 else topic,'primary_model',cid))
+                                           (topic,topic,'primary_model' if stage=='primary' else 'primary_quarrel_v1',cid))
                             elif stage=='review':
                                 db.execute("UPDATE texts SET topic=?,method='scoped_context_review' WHERE id=?",(topic,cid))
                             elif stage=='review_scored':
@@ -111,15 +114,16 @@ def execute(root,stage,settings,channel,caller=provider.call):
     if incomplete:raise RuntimeError(f'{stage}: {incomplete} incomplete/failed batches. Inspect status; resume pending work or explicitly retry failures.')
 
 def classify(root,settings,channel,caller=provider.call):
-    execute(root,'primary',settings,channel,caller)
-    # Finish any interrupted legacy queue with its frozen prompt. New candidates
-    # receive their final category and strength together, without a third model pass.
-    with closing(connect(root)) as db:
-        legacy=db.execute("SELECT count(*) FROM batches WHERE stage='review' AND status!='complete'").fetchone()[0]
-    if legacy:execute(root,'review',settings,channel,caller)
-    execute(root,'review_scored',settings,channel,caller)
-    # Backfill only pre-upgrade attacks whose score was never produced.
-    execute(root,'severity',settings,channel,caller)
+    with closing(connect(root)) as db,db:
+        legacy=db.execute("SELECT count(*) FROM batches WHERE stage='primary' AND status!='complete'").fetchone()[0]
+        # Retain completed decisions and receipts. An unfinished old second
+        # classifier must not silently remove category 5 after this upgrade.
+        db.execute("UPDATE batches SET status='superseded' WHERE stage IN ('review','review_scored','severity') AND status!='complete'")
+        db.execute("UPDATE jobs SET status='superseded' WHERE stage IN ('review','review_scored','severity') AND status!='complete'")
+        db.execute("UPDATE texts SET topic=5,method='primary_preserved_on_upgrade' WHERE candidate_topic=5 AND topic IS NULL")
+    if legacy:execute(root,'primary',settings,channel,caller,enqueue=False)
+    execute(root,'primary_quarrel',settings,channel,caller)
+    execute(root,'intensity',settings,channel,caller)
     result=summary(root);save(Path(root)/'progress.json',result)
     if result['pending_texts']:raise RuntimeError('Unprocessed readable text remains')
     return result

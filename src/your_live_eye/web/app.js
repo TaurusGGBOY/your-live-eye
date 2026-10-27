@@ -18,7 +18,7 @@ let observedDates = new Set();
 let overviewDate, inDrill = false;
 const unknownId = () => 6;
 const order = () => [0,1,2,7,3,4,5,6].filter(id=>id<snapshot.topics.length);
-const labels = () => snapshot.topics.map((label,id)=>id===5?'攻击':label);
+const labels = () => snapshot.topics.map((label,id)=>id===5?'争吵':label);
 const color = id => `var(--topic-${['translation','greeting','support','meme','chat','criticism','unknown','care'][id]})`;
 const blank = () => ({topic:Array(snapshot?.topics?.length || 8).fill(0),total:0});
 const isoDay = value => new Date(value).toISOString().slice(0,10);
@@ -53,7 +53,7 @@ function attackScore(row) {
 }
 
 function legendItems(compact=false) {
-  const shortLabels=['翻译','招呼','赞美','玩梗','闲聊','攻击','待判','关心'];
+  const shortLabels=['翻译','招呼','赞美','玩梗','闲聊','争吵','待判','关心'];
   return order().map(id=>`<button class="legend-item" data-legend-topic="${id}" aria-pressed="${highlightedTopic===String(id)}" title="高亮${escapeHTML(labels()[id])}，再点恢复全部"><i class="swatch ${id===unknownId()?'unknown':''}" style="--topic-color:${color(id)}" aria-hidden="true"></i>${compact?`<span class="legend-full-label">${escapeHTML(labels()[id])}</span><span class="legend-short-label">${shortLabels[id]}</span>`:escapeHTML(labels()[id])}</button>`).join('');
 }
 function applyHighlight() {
@@ -209,12 +209,18 @@ function fitMemeText() {
     button.hidden=button.getAttribute('aria-expanded')!=='true' && text.scrollHeight<=text.clientHeight+1;
   });
 }
+function chronological(rows,timestamp=row=>row.ts) {
+  const time=row=>Number.isFinite(timestamp(row))?timestamp(row):Infinity;
+  return [...rows].sort((a,b)=>time(a)-time(b));
+}
 function renderInsights() {
   const reactions=$('#reaction-content'),criticals=$('#critical-content');
+  const reviewed=insightData?.meme_review?.status==='reviewed';
+  $('#reaction-title').textContent=reviewed?'玩梗话题':'高频互动';
   const period=scope==='day' && selected!==null?buckets[selected]:null;
   const scopeText=scope!=='day'?'':period?period.label:'全天';
   document.querySelectorAll('[data-insight-period]').forEach(el=>el.textContent=scopeText);
-  if(scope!=='day'){reactions.innerHTML='<p class="insight-empty">选择具体日期后查看高频互动</p>';criticals.innerHTML='<p class="insight-empty">选择具体日期后查看攻击原文</p>';return;}
+  if(scope!=='day'){reactions.innerHTML='<p class="insight-empty">选择具体日期后查看高频互动</p>';criticals.innerHTML='<p class="insight-empty">选择具体日期后查看争吵原文</p>';return;}
   let visible=insightData;
   if(insightStatus!=='ready'){
     reactions.innerHTML=insightStatus==='loading'?'<p class="insight-empty">正在读取当天话题…</p>':'<p class="insight-empty">当天话题暂时无法读取 <button class="text-button" id="retry-insights">重试</button></p>';
@@ -229,7 +235,8 @@ function renderInsights() {
       criticals.innerHTML='<p class="insight-empty">该时段的原文尚未更新。</p>';return;
     }
   }
-  reactions.innerHTML=(visible.reaction_topics || []).slice(0,period?1:2).map((story,index)=>{
+  const reactionTopics=period?(visible.reaction_topics || []).slice(0,1):chronological(visible.reaction_topics || [],story=>story.first_reaction?.ts);
+  reactions.innerHTML=reactionTopics.map((story,index)=>{
     const replies=(story.audience_replies || story.reaction_examples || []).slice(0,5);
     const occurredAt=(period?story.period_reaction:story.first_reaction)?.ts;
     const occurrence=Number.isFinite(occurredAt)?new Date(occurredAt):null;
@@ -241,8 +248,11 @@ function renderInsights() {
     const scId=`meme-sc-${index}`;
     const context=sc?.text?`<section class="meme-sc-block" aria-label="SC 原文"><div class="meme-section-heading"><a class="meme-section-label" href="${escapeHTML(sourceSearchLink(sc))}" target="_blank" rel="noopener noreferrer" title="在 Danmakus 查看这条 SC">SC 原文 ↗</a><button class="meme-sc-toggle" aria-expanded="false" aria-controls="${scId}" hidden>展开</button></div><p id="${scId}" class="meme-sc-text" data-expanded="false">${escapeHTML(sc.text)}</p></section>`:'';
     const responses=replies.length?`<section class="meme-reply-block" aria-label="观众接话"><span class="meme-section-label">观众接话</span><ul class="meme-replies">${replies.map(row=>`<li><q>${escapeHTML(row.text)}</q></li>`).join('')}</ul></section>`:'';
-    return `<article class="reaction-story"><div class="story-top"><strong>${escapeHTML(story.title)}</strong>${occurrenceControl}</div>${context}${responses}</article>`;
-  }).join('') || `<p class="insight-empty">${period?'该时段':'当天'}暂无精选片段。</p>`;
+    const evidence=(story.context_evidence || []).filter(row=>row.text!==sc?.text).slice(0,5);
+    const details=story.overview?`<details class="meme-evidence"><summary>查看语境与原文依据</summary><p>${escapeHTML(story.overview)}</p><ul>${evidence.map(row=>`<li><a href="${escapeHTML(sourceSearchLink(row))}" target="_blank" rel="noopener noreferrer">${escapeHTML(row.text)}</a></li>`).join('')}</ul><small>${escapeHTML(story.review_source || '')}</small></details>`:'';
+    return `<article class="reaction-story"><div class="story-top"><strong>${escapeHTML(story.title)}</strong>${occurrenceControl}</div>${context}${responses}${details}</article>`;
+  }).join('') || `<p class="insight-empty">${reviewed?'已审阅当前文本，尚未确认有充分依据的玩梗。':`${period?'该时段':'当天'}暂无精选片段。`}</p>`;
+  if(!reviewed)reactions.insertAdjacentHTML('beforeend','<p class="insight-empty">当前为原文频次，尚未完成玩梗语义审核。</p>');
   reactions.querySelectorAll('[data-meme-period]').forEach(button=>button.addEventListener('click',()=>{
     const index=Number(button.dataset.memePeriod);
     setPeriod(index);
@@ -265,7 +275,7 @@ function renderInsights() {
     : [...insightData.period_insights].sort((a,b)=>a.start-b.start)
       .flatMap(row=>(row.critical_quotes || []).slice(0,10));
   const criticalTotal=visible.critical_total_count ?? (period?period.topic[5]:dayData?.series?.all?.topic?.[5]);
-  const quoteHTML=criticalQuotes.map((row,index)=>{
+  const quoteHTML=(period?criticalQuotes:chronological(criticalQuotes)).map((row,index)=>{
     const long=row.text.length>12 || /[\r\n]/.test(row.text);
     const fullId=`quote-full-${index}`;
     const score=attackScore(row);
@@ -273,7 +283,7 @@ function renderInsights() {
   }).join('');
   criticals.innerHTML=quoteHTML || (criticalTotal>0
     ? '<p class="insight-empty">暂无可展示原文。</p>'
-    : `<p class="insight-empty">${period?'该时段':'当天'}暂无攻击摘录。</p>`);
+    : `<p class="insight-empty">${period?'该时段':'当天'}暂无争吵摘录。</p>`);
   criticals.querySelectorAll('.quote-toggle').forEach(button=>button.addEventListener('click',()=>{
     const open=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(open));button.textContent=open?'收起':'展开';document.getElementById(button.getAttribute('aria-controls')).hidden=!open;
   }));

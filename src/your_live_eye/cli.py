@@ -24,12 +24,15 @@ def main():
     run.add_argument('--reasoning',default='high');run.add_argument('--tier',default='fast')
     run.add_argument('--batch-size',type=int,default=8192);run.add_argument('--batch-bytes',type=int,default=200000)
     run.add_argument('--review-batch-size',type=int,default=32);run.add_argument('--concurrency',type=int,default=2)
+    run.add_argument('--score-batch-size',type=int,default=2048,help='Intensity-only batch; does not change categories')
+    run.add_argument('--meme-model',help='Optional semantic-review model; defaults to the selected classifier model')
+    run.add_argument('--meme-reasoning',help='Optional semantic-review effort; defaults to --reasoning')
     run.add_argument('--timeout',type=int,default=900);run.add_argument('--max-attempts',type=int,default=3)
     run.add_argument('--deploy',action='store_true');run.add_argument('--bind',default='0.0.0.0');run.add_argument('--port',type=int,default=18770)
     run.add_argument('--schedule',action='store_true',help='Install daily catch-up at --update-at / --timezone')
-    for name in ('resume','status','rebuild','schedule','unschedule','deploy','stop','verify','export','cloudflare-build'):
+    for name in ('resume','status','rebuild','review-memes','schedule','unschedule','deploy','stop','verify','export','cloudflare-build'):
         p=sub.add_parser(name);p.add_argument('--config',type=Path,required=True)
-        if name=='resume':p.add_argument('--retry-failed',action='store_true')
+        if name in ('resume','review-memes'):p.add_argument('--retry-failed',action='store_true')
         if name=='schedule':p.add_argument('--print-only',action='store_true')
         if name=='export':p.add_argument('--output',type=Path,required=True)
         if name=='cloudflare-build':
@@ -47,13 +50,15 @@ def main():
             schedule_options({'update_at':args.update_at,'timezone':args.timezone})
             if args.configure_only and args.schedule:
                 raise ValueError('--configure-only does not install a timer; use schedule --config after reviewing the saved configuration')
-            if not 1<=args.concurrency<=16 or not 1<=args.batch_size<=8192 or args.batch_bytes<1024 or args.review_batch_size<1:
+            if not 1<=args.concurrency<=16 or not 1<=args.batch_size<=8192 or args.batch_bytes<1024 or args.review_batch_size<1 or not 1<=args.score_batch_size<=8192:
                 raise ValueError('Concurrency 1..16, batch size 1..8192, review batch positive, batch bytes >=1024 required')
             channel,catalogue=Source(args.source_base).resolve(args.target)
             root=args.state.resolve()/str(channel['uid']);config_path=root/'config.json'
-            settings={k:getattr(args,k) for k in ('provider','model','reasoning','tier','batch_size','batch_bytes','review_batch_size','concurrency','timeout','max_attempts')}
+            settings={k:getattr(args,k) for k in ('provider','model','reasoning','tier','batch_size','batch_bytes','review_batch_size','score_batch_size','concurrency','timeout','max_attempts')}
             config=dict(channel=channel,date=args.date,fallback_latest=args.fallback_latest,source_base=args.source_base,
                         model=settings,deploy=args.deploy,bind=args.bind,port=args.port,timezone=args.timezone,update_at=args.update_at,schema=1)
+            if args.meme_model or args.meme_reasoning:
+                config['meme_model']={k:v for k,v in {'model':args.meme_model,'reasoning':args.meme_reasoning}.items() if v}
             if config_path.exists():
                 previous=read(config_path)
                 if dict(previous,update_at=previous.get('update_at','04:00'))!=config:
@@ -76,10 +81,16 @@ def main():
             result=run_pipeline(config_path,retry_failed=args.retry_failed)
         elif args.command=='status':
             from .store import summary
-            result={'classification':summary(root),'run':read(root/'last-run.json') if (root/'last-run.json').exists() else None}
+            result={'classification':summary(root),'run':read(root/'last-run.json') if (root/'last-run.json').exists() else None,
+                    'meme_review':read(root/'memes/progress.json') if (root/'memes/progress.json').exists() else None}
         elif args.command=='rebuild':
             from .site import build
             result={'site':str(build(root,config))}
+        elif args.command=='review-memes':
+            from .memes import update
+            from .util import process_lock
+            with process_lock(root/'pipeline.lock'):
+                result=update(root,config,retry_failed=args.retry_failed)
         elif args.command=='cloudflare-build':
             from .cloudflare import prepare
             result=prepare(config_path,args.output,args.mode)

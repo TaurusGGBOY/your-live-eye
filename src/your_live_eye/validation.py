@@ -12,7 +12,7 @@ def validate_pairs(payload,rows,allow_partial=False):
     if not allow_partial and seen!=expected:raise ValueError('Incomplete output IDs')
     return labels
 
-def salvage_pairs(payload,rows,max_value=7):
+def salvage_pairs(payload,rows,max_value=7,min_value=0):
     """Keep only unambiguous valid expected pairs; never infer or repair IDs."""
     pairs=payload['items']
     if not isinstance(pairs,list):raise ValueError('Output items must be a list')
@@ -25,7 +25,7 @@ def salvage_pairs(payload,rows,max_value=7):
         if not isinstance(pair,list) or len(pair)!=2 or type(pair[0]) is not int:
             malformed+=1;continue
         cid,topic=pair
-        if type(topic) is not int or not 0<=topic<=max_value:
+        if type(topic) is not int or not min_value<=topic<=max_value:
             if cid in expected:invalid_topic.add(cid)
             continue
         if cid in expected and appearances[cid]==1:labels[cid]=topic

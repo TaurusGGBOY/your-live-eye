@@ -39,6 +39,8 @@ def build(root,config):
     if info['pending_texts']:raise RuntimeError('Cannot publish while readable text remains unprocessed')
     if info['pending_scores']:raise RuntimeError('Attack strength scoring is incomplete; resume classification before publishing')
     channel=config['channel'];days=defaultdict(empty_day);quotes=defaultdict(list)
+    from .memes import load,rank
+    meme_episodes,meme_states=load(root)
     with closing(connect(root)) as db:
         lives={r['id']:json.loads(r['live_json']) for r in db.execute('SELECT id,live_json FROM sources')}
         exclusions=Counter()
@@ -77,10 +79,13 @@ def build(root,config):
         for start,end in intervals(ranges):
             rows=[r for r in quotes[day] if start<=r['ts']<end]
             attacks=sorted((r for r in rows if r['topic']==5),key=lambda r:(-(r['severity_score'] or 0),r['ts']))
-            periods.append(dict(start=start,end=end,critical_quotes=attacks[:10],critical_total_count=len(attacks),reaction_topics=highlights(rows,channel,1)))
+            periods.append(dict(start=start,end=end,critical_quotes=attacks[:10],critical_total_count=len(attacks),
+                reaction_topics=rank(meme_episodes,day,1,(start,end)) if meme_states.get(day)=='reviewed' else highlights(rows,channel,1)))
         save(site/'insights'/f'{day}.json',dict(day=day,live_only=True,period_insights=periods,
              critical_total_count=sum(r['topic']==5 for r in quotes[day]),
-             critical_quotes=sorted((r for r in quotes[day] if r['topic']==5),key=lambda r:(-(r['severity_score'] or 0),r['ts']))[:10],reaction_topics=highlights(quotes[day],channel,2)))
+             critical_quotes=sorted((r for r in quotes[day] if r['topic']==5),key=lambda r:(-(r['severity_score'] or 0),r['ts']))[:10],
+             reaction_topics=rank(meme_episodes,day,None) if meme_states.get(day)=='reviewed' else highlights(quotes[day],channel,2),
+             meme_review={'status':meme_states.get(day,'not_reviewed')}))
         total=[a+b for a,b in zip(total,data['vector'])]
     calendar=calendar_index(days,dt.date.fromisoformat(observed[0]),dt.date.fromisoformat(observed[-1]))
     selection=read(root/'selection.json')
@@ -92,8 +97,8 @@ def build(root,config):
         live_only=True,daily_insights=True,insights_generated_at=generated,
         classification_status={'unprocessed':info['pending_texts'],'unknown_events':info['topic_counts'].get(6,0),
                                'unreadable_events':info['unreadable_events']},
-        selection=selection,method='字面括号规则 + 模型批量分类 + 针对主播/粉丝的攻击语境复核',
-        coverage_note='仅统计来源已收录且已结束的直播区间；缺档不代表没有开播。模型分类未经逐条人工核验。图片及缺失正文归待判断。高频互动为原文频次，不推断主播发言。',
+        selection=selection,method='字面括号规则 + 模型分类 + 独立措辞强度；升级保留既有分类与评分',
+        coverage_note='仅统计来源已收录且已结束的直播区间；缺档不代表没有开播。模型分类未经逐条人工核验。图片及缺失正文归待判断。玩梗以SC或同传文本为依据，不能证明主播音视频内容；尚未审核的旧日仅显示原文频次。',
         schedule={k:v for k,v in (read(root/'schedule.json') if (root/'schedule.json').exists() else {'enabled':False}).items()
                   if k in ('enabled','timezone','hour','minute','poll_seconds')},
         sessions=[{k:live.get(k) for k in ('liveId','title','startDate','stopDate','isFull','danmakusCount')} for live in lives.values()])

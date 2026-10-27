@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "your-live-eye"
-version = "0.3.1"
+version = "0.4.1"
 description = "Agent-friendly Bilibili live-chat analysis, scheduling and deployment"
 requires-python = ">=3.11"
 dependencies = ["requests>=2.31,<3", "msgpack>=1.0,<2", "tzdata>=2024.1"]

@@ -68,6 +68,8 @@ def run(config_path,initial=False,retry_failed=False):
             classify(root,config['model'],config['channel'])
             if coverage['errors']:
                 raise RuntimeError(f"{len(coverage['errors'])} source downloads incomplete; successful sources and model decisions are saved; previous site retained")
+            from .memes import update
+            report['meme_review']=update(root,config,retry_failed=retry_failed)
             from .site import build
             site=build(root,config)
             if config.get('deploy'):

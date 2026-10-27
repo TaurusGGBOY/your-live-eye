@@ -35,6 +35,8 @@ class CloudStateTests(unittest.TestCase):
         save(root/'current.json',{'directory':str(root/'releases/current')})
         save(root/'releases/current/data.json',{'value':1})
         save(root/'releases/old/data.json',{'value':0})
+        save(root/'memes/index.json',{'test':{'run':1,'status':'pending'}})
+        save(root/'memes/runs/1/chunks/0/primary.json',{'status':'complete','result':[]})
         (root/'raw/stream').mkdir(parents=True);(root/'raw/stream/body').write_text('source', encoding='utf-8')
         (root/'.env').write_text('should not leave the machine', encoding='utf-8')
         with closing(connect(root)) as db,db:
@@ -45,6 +47,7 @@ class CloudStateTests(unittest.TestCase):
         with closing(connect(target)) as db:self.assertEqual(db.execute('SELECT text FROM texts').fetchone()[0],'saved work')
         self.assertEqual(read(target/'current.json')['directory'],str(target/'releases/current'))
         self.assertTrue((target/'raw/stream/body').exists())
+        self.assertEqual(read(target/'memes/runs/1/chunks/0/primary.json')['status'],'complete')
         self.assertFalse((target/'.env').exists());self.assertFalse((target/'releases/old').exists())
 
     def test_permission_error_is_not_a_new_empty_dataset(self):

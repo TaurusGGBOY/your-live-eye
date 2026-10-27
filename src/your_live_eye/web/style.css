@@ -281,3 +281,6 @@ a.meme-section-label:hover{color:var(--accent)}
 /* Quiet presentation for attack excerpts scored below 50. */
 .critical-quote-low .quote-source,.critical-quote-low .quote-source>span:last-child,.critical-quote-low .quote-full,.critical-quote-low .quote-toggle,.critical-quote-low .critical-row time{color:#9a9ca5}
 .critical-quote-low .severity-badge{color:#9a9ca5;background:#2b2f38}
+
+.meme-evidence{font-size:.8rem;line-height:1.6;color:var(--muted);margin-top:8px;overflow-wrap:anywhere}
+.meme-evidence summary{cursor:pointer}.meme-evidence ul{padding-left:18px}.meme-evidence a{color:inherit}

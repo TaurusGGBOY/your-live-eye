@@ -43,6 +43,7 @@ class InitializationTests(unittest.TestCase):
     def execute(self,lives,acquire=None):
         with patch.object(Source,'catalogue',return_value={'channel':CHANNEL,'lives':lives}), \
              patch.object(Source,'acquire',side_effect=acquire or self.acquire), \
+             patch('your_live_eye.memes.update',return_value={'status':'complete'}), \
              patch('your_live_eye.pipeline.classify',side_effect=lambda root,settings,channel:classify(root,settings,channel,self.caller)):
             return run(self.root/'config.json')
 

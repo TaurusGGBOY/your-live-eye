@@ -63,6 +63,8 @@ class PipelineTests(unittest.TestCase):
 
     @staticmethod
     def caller(rows,prompt,settings,stem):
+        if settings.get('min_output_value')==1:
+            return {r['id']:8 for r in rows},dict(error=None,seconds=.01,usage={},output_path=str(stem))
         labels={r['id']:5 if r['text']=='指责' and 'contexts' not in r else 4 for r in rows}
         if settings.get('response_kind')=='scored_review':labels={cid:{'topic':topic,'severity_score':0} for cid,topic in labels.items()}
         return labels,dict(error=None,seconds=.01,usage={'input_tokens':10},output_path=str(stem)+'.json')
@@ -74,8 +76,8 @@ class PipelineTests(unittest.TestCase):
         classify(self.root,SETTINGS,CHANNEL,self.caller)
         state=summary(self.root);self.assertEqual(state['events'],6);self.assertEqual(state['unique_texts'],4)
         self.assertEqual(state['topic_counts'][0],1);self.assertEqual(state['pending_texts'],0)
-        # Ordinary criticism candidate is removed by second stage; unknown image survives.
-        self.assertNotIn(5,state['topic_counts']);self.assertEqual(state['unreadable_events'],1)
+        # Intensity must not reclassify even a low-scoring category-5 message.
+        self.assertEqual(state['topic_counts'][5],1);self.assertEqual(state['unreadable_events'],1)
         attempts=state['model_attempts']
         ingest(self.root,LIVE,rows);classify(self.root,SETTINGS,CHANNEL,self.caller)
         self.assertEqual(summary(self.root)['model_attempts'],attempts)
@@ -92,16 +94,16 @@ class PipelineTests(unittest.TestCase):
         ingest(self.root,LIVE,[event(1,'攻击甲'),event(2,'攻击甲'),event(3,'攻击乙')])
         def caller(rows,prompt,settings,stem):
             score=settings.get('max_output_value')==100
-            values={r['id']:(75 if r['text']=='攻击甲' else 0) if score else 5 for r in rows}
+            values={r['id']:(75 if r['text']=='攻击甲' else 8) if score else 5 for r in rows}
             if settings.get('response_kind')=='scored_review':values={r['id']:{'topic':5,'severity_score':75 if r['text']=='攻击甲' else 0} for r in rows}
             return values,dict(error=None,seconds=.01,usage={},output_path=str(stem))
         classify(self.root,SETTINGS,CHANNEL,caller)
         state=summary(self.root)
         self.assertEqual(state['topic_counts'][5],3);self.assertEqual(state['pending_scores'],0)
-        self.assertEqual(state['model_attempts'],2) # One primary + one combined review, no separate scoring call.
+        self.assertEqual(state['model_attempts'],2) # One primary + intensity only.
         site=build(self.root,self.config)
         insights=json.loads((site/'insights/2026-10-25.json').read_text(encoding='utf-8'))
-        self.assertEqual([r['severity_score'] for r in insights['critical_quotes']],[75,75,None])
+        self.assertEqual([r['severity_score'] for r in insights['critical_quotes']],[75,75,8])
         classify(self.root,SETTINGS,CHANNEL,caller)
         self.assertEqual(summary(self.root)['model_attempts'],state['model_attempts'])
         # A score is not a category; reject out-of-range values without rejecting valid IDs.

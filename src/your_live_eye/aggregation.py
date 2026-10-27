@@ -3,7 +3,7 @@ import bisect
 import calendar
 import datetime as dt
 TZ=dt.timezone(dt.timedelta(hours=8))
-TOPICS=["实时翻译","打招呼","支持赞美","玩梗反应","闲聊交流","攻击","待判断","关心爱护"]
+TOPICS=["实时翻译","打招呼","支持赞美","玩梗反应","闲聊交流","争吵","待判断","关心爱护"]
 SENTIMENTS=["支持友善","中性表达","不满担忧","无法判断"]
 N_TOPICS=8
 N_VECTOR=24
