@@ -41,7 +41,7 @@ def main():
     try:
         if args.command=='resolve':
             channel,catalogue=Source(args.source_base).resolve(args.target)
-            print(json.dumps(channel,ensure_ascii=False,indent=2));return
+            print(json.dumps(channel,ensure_ascii=True,indent=2));return
         if args.command=='run':
             from .schedule import schedule_options
             schedule_options({'update_at':args.update_at,'timezone':args.timezone})
@@ -68,7 +68,7 @@ def main():
                 # Keep the requested daily recovery available even if initialization failed.
                 if args.schedule:
                     from .schedule import install
-                    print(json.dumps(install(config_path),ensure_ascii=False,indent=2))
+                    print(json.dumps(install(config_path),ensure_ascii=True,indent=2))
             return
         config_path=args.config.resolve();config=read(config_path);root=config_path.parent
         if args.command=='resume':
